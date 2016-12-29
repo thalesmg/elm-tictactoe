@@ -1,5 +1,4 @@
 import Html exposing (..)
-import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Matrix exposing (..)
 
@@ -59,7 +58,7 @@ viewElement element =
 mkTable : Matrix (Maybe Player) -> Html Msg
 mkTable m =
     let
-        element i j = td [ onClick (Play i j), attribute "width" "33", attribute "height" "33" ] [ viewElement (get (i, j) m) ]
+        element i j = td [ onClick (Play i j) ] [ viewElement (get (i, j) m) ]
         line : Int -> List (Html Msg)
         line i = 
             [
@@ -69,11 +68,7 @@ mkTable m =
             ]
     in
         table
-            [ 
-                attribute "border" "1" 
-            ,   attribute "width" "100"
-            ,   attribute "height" "100"
-            ]
+            []
             [
                 tbody [] (List.concatMap line (List.range 0 2))
             ]
