@@ -1,13 +1,16 @@
 td {
-    width: 33px;
-    height: 33px;
+    width: 25vmin;
+    height: 25vmin;
     text-align: center;
     vertical-align: middle;
     border: 1px solid black;
+    font-size: 13vmin;
 }
 
 table {
     border: 1px solid black;
+    /*width: 80vmin;*/
+    table-layout: fixed;
 }
 
 body{
