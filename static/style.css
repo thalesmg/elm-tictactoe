@@ -1,12 +1,13 @@
 td {
-    width: 33 px;
-    height: 33 px;
+    width: 33px;
+    height: 33px;
     text-align: center;
     vertical-align: middle;
+    border: 1px solid black;
 }
 
 table {
-    border: 1 px;
+    border: 1px solid black;
 }
 
 body{

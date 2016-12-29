@@ -18,10 +18,19 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-  mkTable model.arr
+    div []
+        [
+            mkTable model.arr
+        ,   br [] []
+        ,   button [ onClick Reset ] [ text "Reset" ]
+        ]
+  
 
 init : (Model, Cmd msg)
-init = ({arr = (square 3 (\_ -> Nothing)), turn = X}, Cmd.none)
+init = ({arr = emptyArray, turn = X}, Cmd.none)
+
+emptyArray : Matrix (Maybe Player)
+emptyArray = square 3 (\_ -> Nothing)
 
 type Player = X | O
 
@@ -38,6 +47,7 @@ nextTurn turn =
         O -> X
 
 type Msg = Play Int Int
+         | Reset
 
 viewPlayer : Player -> String
 viewPlayer p =
@@ -45,8 +55,8 @@ viewPlayer p =
         X -> "X"
         O -> "O"
 
-viewElement : Maybe (Maybe Player) -> Html msg
-viewElement element =
+renderCell : Maybe (Maybe Player) -> Html msg
+renderCell element =
     let
         el = joinMaybe element
     in
@@ -58,7 +68,7 @@ viewElement element =
 mkTable : Matrix (Maybe Player) -> Html Msg
 mkTable m =
     let
-        element i j = td [ onClick (Play i j) ] [ viewElement (get (i, j) m) ]
+        element i j = td [ onClick (Play i j) ] [ renderCell (get (i, j) m) ]
         line : Int -> List (Html Msg)
         line i = 
             [
@@ -96,4 +106,5 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
     Play i j -> play i j msg model
+    Reset    -> init
 
