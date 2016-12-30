@@ -2,6 +2,7 @@ import Html exposing (..)
 import Html.Events exposing (onClick)
 import Matrix exposing (..)
 
+
 main : Program Never Model Msg
 main = 
     program
@@ -12,25 +13,13 @@ main =
         ,   subscriptions = subscriptions
         }
 
+-- Subscriptions
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.none
 
-view : Model -> Html Msg
-view model =
-    div []
-        [
-            mkTable model.arr
-        ,   br [] []
-        ,   button [ onClick Reset ] [ text "Reset" ]
-        ]
-  
-
-init : (Model, Cmd msg)
-init = ({arr = emptyArray, turn = X}, Cmd.none)
-
-emptyArray : Matrix (Maybe Player)
-emptyArray = square 3 (\_ -> Nothing)
+-- Model
 
 type Player = X | O
 
@@ -40,14 +29,23 @@ type alias Model =
     ,   turn : Player
     }
 
-nextTurn : Player -> Player
-nextTurn turn = 
-    case turn of
-        X -> O
-        O -> X
+init : (Model, Cmd msg)
+init = ({arr = emptyArray, turn = X}, Cmd.none)
 
-type Msg = Play Int Int
-         | Reset
+emptyArray : Matrix (Maybe Player)
+emptyArray = square 3 (\_ -> Nothing)
+
+-- View
+
+view : Model -> Html Msg
+view model =
+    div []
+        [
+            mkTable model.arr
+        ,   br [] []
+        ,   button [ onClick Reset ] [ text "Reset" ]
+        ]
+
 
 viewPlayer : Player -> String
 viewPlayer p =
@@ -90,6 +88,8 @@ joinMaybe mma =
         Just Nothing -> Nothing
         Just (Just a) -> Just a
 
+-- Update
+
 play : Int -> Int -> Msg -> Model -> (Model, Cmd Msg)
 play i j msg model =
     let
@@ -107,4 +107,14 @@ update msg model =
   case msg of
     Play i j -> play i j msg model
     Reset    -> init
+
+
+nextTurn : Player -> Player
+nextTurn turn = 
+    case turn of
+        X -> O
+        O -> X
+
+type Msg = Play Int Int
+         | Reset
 
