@@ -4,6 +4,7 @@ import Html exposing (..)
 import Html.Events exposing (onClick)
 import Matrix exposing (..)
 import Array as A
+import Debug as D
 
 
 main : Program Never Model Msg
@@ -98,6 +99,9 @@ joinMaybe mma =
 type Msg = Play Int Int
          | Reset
 
+makeMove : Player -> Location -> Board -> Board
+makeMove player (i, j) board = set (i, j) (Just player) board
+
 play : Int -> Int -> Msg -> Model -> (Model, Cmd Msg)
 play i j msg model =
     let
@@ -106,7 +110,7 @@ play i j msg model =
         element = joinMaybe <| get (i, j) array
     in
         case element of
-            Nothing -> ({ model | arr = set (i, j) (Just currturn) array, turn = nextTurn currturn}, Cmd.none)
+            Nothing -> ({ model | arr = makeMove currturn (i, j) array, turn = otherPlayer currturn}, Cmd.none)
             _       -> (model , Cmd.none)
         
 
@@ -117,8 +121,8 @@ update msg model =
     Reset    -> init
 
 
-nextTurn : Player -> Player
-nextTurn turn = 
+otherPlayer : Player -> Player
+otherPlayer turn = 
     case turn of
         X -> O
         O -> X
@@ -131,6 +135,9 @@ isNothing : Maybe a -> Bool
 isNothing m = case m of
     Nothing -> True
     _ -> False
+
+isJust : Maybe a -> Bool
+isJust = not << isNothing
 
 
 availableMoves : Matrix (Maybe Player) -> List Location
@@ -193,11 +200,162 @@ triples b =
         mainD = case insideOut <| List.map2 (\n row -> List.head << List.drop n <| row) (List.range 0 2) board of
             Just d -> d
             Nothing -> []
-        antiD = case insideOut <| List.map2 (\n row -> List.head << List.drop n <| row) (List.range 0 2) tboard of
+        antiD = case insideOut <| List.map2 (\n row -> List.head << List.drop n <| row) (List.reverse <| List.range 0 2) tboard of
             Just d -> d
             Nothing -> []
     in
       board ++ tboard ++ [mainD] ++ [antiD]
 
+winner : Board -> Maybe Player
+winner b =
+    let
+        ts = triples b
+    in
+        if List.member (List.repeat 3 (Just X)) ts then Just X
+        else if List.member (List.repeat 3 (Just O)) ts then Just O
+        else Nothing
 
-      
+
+playerOutcome : Board -> Player -> Maybe Outcome
+playerOutcome b player = 
+    let
+        w = winner b
+        flatBoard = flatten b
+    in
+        case w of
+            Just p -> if p == player then Just Win else Just Lose
+            Nothing -> if List.all (not << isNothing) flatBoard then Just Draw else Nothing
+
+mySnd : (a, b, c) -> b
+mySnd (_, b, _) = b
+
+
+rank : Outcome -> Int
+rank o =
+    case o of
+        Win -> 10
+        Lose -> -10
+        Draw -> 0
+
+
+filterMaybe : List (Maybe a) -> List a
+filterMaybe lma = 
+    case lma of
+        [] -> []
+        (mx::mxs) -> 
+            case mx of
+                Just x -> x :: filterMaybe mxs
+                Nothing -> filterMaybe mxs
+
+
+filterJustTuple : List (Maybe a, b) -> List (a, b)
+filterJustTuple lma = 
+    case lma of
+        [] -> []
+        ((mx, y)::mxsys) -> 
+            case mx of
+                Just x -> (x, y) :: filterJustTuple mxsys
+                Nothing -> filterJustTuple mxsys
+
+filterNothingTuple : List (Maybe a, b) -> List (Maybe a, b)
+filterNothingTuple = List.filter (isNothing << Tuple.first)
+
+
+minimax : Board -> Player -> Int -> (Maybe Outcome, Board)
+minimax board player depth =
+    case playerOutcome board player of
+        -- The game is already over.
+        Just o -> (Just o, board)
+        -- There are possibilities yet.
+        Nothing -> 
+            let
+                -- foo = D.log "input" (board, player, depth)
+                freePositions = availableMoves board
+                other = otherPlayer player
+                possibleBoards = List.map (\pos -> makeMove player pos board) freePositions
+                fallback = 
+                    case List.head possibleBoards of
+                        Just b -> b
+                        Nothing -> board
+                -- test if any of these moves resulted in a game over.
+                -- allOutcomes = List.map (\pos -> minimax (makeMove other pos board) other (depth + 1)) freePositions
+                -- (finishedBoards, ongoingBoards) = List.partition (isJust << Tuple.first) <| List.map (\b -> (playerOutcome b player, b)) possibleBoards
+                allOutcomes = List.map (\b -> (playerOutcome b player, b)) possibleBoards
+                -- ignoring depth for now...
+                myOutcome outcome depth = rank outcome
+                rankedOutcomes = 
+                    allOutcomes
+                    |> filterJustTuple
+                    |> List.map (\(o, b) -> (myOutcome o (depth + 1), b))
+                -- we need to sick the minimax over the unfinished boards...
+                ongoing = 
+                    allOutcomes
+                    |> filterNothingTuple
+                    |> List.map (\(_, b) -> (minimax b other (depth + 1), b))
+                    |> List.map (\((mo, bo), b) -> (playerOutcome bo player, b))
+                    |> filterJustTuple
+                    |> List.map (\(o, b) -> (myOutcome o (depth + 1), b))
+                -- aaa = if List.isEmpty ongoing then D.log "fuck!" board else board
+                -- aaa = D.log "rankedOutcomes" rankedOutcomes
+                -- bbb = D.log "ongoin" ongoing
+                ccc =
+                    if List.isEmpty sorted then
+                        D.log "vazio!!!" (board, player, depth)
+                    else
+                        (board, player, depth)
+                sorted = List.reverse <| List.sortBy Tuple.first (rankedOutcomes ++ ongoing)
+                -- sorted = 
+                --     if List.isEmpty (rankedOutcomes ++ ongoing) && depth == 0 then
+                --         let 
+                --             x = D.log "Vazio! " (board, player, depth, allOutcomes)
+                --         in
+                --             (rankedOutcomes ++ ongoing)
+                --     else
+                --         (rankedOutcomes ++ ongoing)
+                best = case List.head sorted of
+                    Just (score, b) -> b
+                    Nothing -> board
+            in
+                (playerOutcome best player, best)
+
+reverseOutcome : Outcome -> Outcome
+reverseOutcome o = case o of
+    Win -> Lose
+    Lose -> Win
+    Draw -> Draw
+
+
+rank2 : Outcome -> Int -> Int
+rank2 out depth = case out of
+    Win -> 10 - depth
+    Lose -> -10 + depth
+    Draw -> depth
+
+minimax2 : Player -> Board -> Board
+minimax2 player board =
+    let
+        helper : Player -> Int -> Board -> (Outcome, Int)
+        helper pp dd bb =
+            case playerOutcome bb pp of
+                Just o -> (o, dd)
+                Nothing -> 
+                    let
+                        moves = availableMoves bb
+                        other = otherPlayer pp
+                        bs = List.map (\pos -> makeMove other pos bb) moves
+                        outs = List.map (\b -> helper other (dd + 1) b) bs
+                        ranks = outs |> List.map (\(o, d) -> ((o, d), rank2 o d)) |> List.sortBy Tuple.second |> List.reverse
+                    in
+                        case List.head ranks of
+                            Just ((o, d), r) -> (reverseOutcome o, d)
+                            Nothing -> D.crash "Fuck!"
+        gameOver = playerOutcome board player |> isJust
+        allBoards = availableMoves board |> List.map (\pos -> makeMove player pos board)
+        tagged = allBoards |> List.map (\b -> (b, helper player 0 b |> (\(o, d) -> rank2 o d))) |> List.sortBy Tuple.second |> List.reverse
+    in
+        if gameOver
+            then board
+            else
+                case List.head tagged of
+                    Nothing -> D.crash "Argh!"
+                    Just (b, r) -> b
