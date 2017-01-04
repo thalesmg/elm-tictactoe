@@ -110,10 +110,14 @@ play i j msg model =
         array = model.arr
         currturn = model.turn
         element = joinMaybe <| get (i, j) array
+        gameOver = playerOutcome array currturn |> isJust 
     in
-        case element of
-            Nothing -> computerPlay { model | arr = makeMove currturn (i, j) array, turn = otherPlayer currturn}
-            _       -> (model , Cmd.none)
+        if gameOver
+            then (model, Cmd.none)
+            else
+                case element of
+                    Nothing -> computerPlay { model | arr = makeMove currturn (i, j) array, turn = otherPlayer currturn}
+                    _       -> (model , Cmd.none)
         
 
 computerPlay : Model -> (Model, Cmd Msg)
