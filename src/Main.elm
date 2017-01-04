@@ -25,7 +25,7 @@ subscriptions model =
 
 -- Model
 
-type Player = X | O
+type Player = Human | Computer
 
 type alias Board = Matrix (Maybe Player)
 
@@ -36,7 +36,7 @@ type alias Model =
     }
 
 init : (Model, Cmd msg)
-init = ({arr = emptyArray, turn = X}, Cmd.none)
+init = ({arr = emptyArray, turn = Human}, Cmd.none)
 
 emptyArray : Matrix (Maybe Player)
 emptyArray = square 3 (\_ -> Nothing)
@@ -56,8 +56,8 @@ view model =
 viewPlayer : Player -> String
 viewPlayer p =
     case p of
-        X -> "X"
-        O -> "O"
+        Human -> "X"
+        Computer -> "O"
 
 renderCell : Maybe (Maybe Player) -> Html msg
 renderCell element =
@@ -99,8 +99,10 @@ joinMaybe mma =
 type Msg = Play Int Int
          | Reset
 
+
 makeMove : Player -> Location -> Board -> Board
 makeMove player (i, j) board = set (i, j) (Just player) board
+
 
 play : Int -> Int -> Msg -> Model -> (Model, Cmd Msg)
 play i j msg model =
@@ -110,8 +112,18 @@ play i j msg model =
         element = joinMaybe <| get (i, j) array
     in
         case element of
-            Nothing -> ({ model | arr = makeMove currturn (i, j) array, turn = otherPlayer currturn}, Cmd.none)
+            Nothing -> computerPlay { model | arr = makeMove currturn (i, j) array, turn = otherPlayer currturn}
             _       -> (model , Cmd.none)
+        
+
+computerPlay : Model -> (Model, Cmd Msg)
+computerPlay model =
+    let
+        computer = model.turn
+        nextArray = minimax2 computer model.arr
+        player = otherPlayer computer
+    in
+        ({ model | arr = nextArray, turn = player}, Cmd.none)
         
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -124,8 +136,8 @@ update msg model =
 otherPlayer : Player -> Player
 otherPlayer turn = 
     case turn of
-        X -> O
-        O -> X
+        Human -> Computer
+        Computer -> Human
 
 
 -- Computer player
@@ -211,8 +223,8 @@ winner b =
     let
         ts = triples b
     in
-        if List.member (List.repeat 3 (Just X)) ts then Just X
-        else if List.member (List.repeat 3 (Just O)) ts then Just O
+        if List.member (List.repeat 3 (Just Human)) ts then Just Human
+        else if List.member (List.repeat 3 (Just Computer)) ts then Just Computer
         else Nothing
 
 
@@ -261,63 +273,6 @@ filterNothingTuple : List (Maybe a, b) -> List (Maybe a, b)
 filterNothingTuple = List.filter (isNothing << Tuple.first)
 
 
-minimax : Board -> Player -> Int -> (Maybe Outcome, Board)
-minimax board player depth =
-    case playerOutcome board player of
-        -- The game is already over.
-        Just o -> (Just o, board)
-        -- There are possibilities yet.
-        Nothing -> 
-            let
-                -- foo = D.log "input" (board, player, depth)
-                freePositions = availableMoves board
-                other = otherPlayer player
-                possibleBoards = List.map (\pos -> makeMove player pos board) freePositions
-                fallback = 
-                    case List.head possibleBoards of
-                        Just b -> b
-                        Nothing -> board
-                -- test if any of these moves resulted in a game over.
-                -- allOutcomes = List.map (\pos -> minimax (makeMove other pos board) other (depth + 1)) freePositions
-                -- (finishedBoards, ongoingBoards) = List.partition (isJust << Tuple.first) <| List.map (\b -> (playerOutcome b player, b)) possibleBoards
-                allOutcomes = List.map (\b -> (playerOutcome b player, b)) possibleBoards
-                -- ignoring depth for now...
-                myOutcome outcome depth = rank outcome
-                rankedOutcomes = 
-                    allOutcomes
-                    |> filterJustTuple
-                    |> List.map (\(o, b) -> (myOutcome o (depth + 1), b))
-                -- we need to sick the minimax over the unfinished boards...
-                ongoing = 
-                    allOutcomes
-                    |> filterNothingTuple
-                    |> List.map (\(_, b) -> (minimax b other (depth + 1), b))
-                    |> List.map (\((mo, bo), b) -> (playerOutcome bo player, b))
-                    |> filterJustTuple
-                    |> List.map (\(o, b) -> (myOutcome o (depth + 1), b))
-                -- aaa = if List.isEmpty ongoing then D.log "fuck!" board else board
-                -- aaa = D.log "rankedOutcomes" rankedOutcomes
-                -- bbb = D.log "ongoin" ongoing
-                ccc =
-                    if List.isEmpty sorted then
-                        D.log "vazio!!!" (board, player, depth)
-                    else
-                        (board, player, depth)
-                sorted = List.reverse <| List.sortBy Tuple.first (rankedOutcomes ++ ongoing)
-                -- sorted = 
-                --     if List.isEmpty (rankedOutcomes ++ ongoing) && depth == 0 then
-                --         let 
-                --             x = D.log "Vazio! " (board, player, depth, allOutcomes)
-                --         in
-                --             (rankedOutcomes ++ ongoing)
-                --     else
-                --         (rankedOutcomes ++ ongoing)
-                best = case List.head sorted of
-                    Just (score, b) -> b
-                    Nothing -> board
-            in
-                (playerOutcome best player, best)
-
 reverseOutcome : Outcome -> Outcome
 reverseOutcome o = case o of
     Win -> Lose
@@ -330,6 +285,7 @@ rank2 out depth = case out of
     Win -> 10 - depth
     Lose -> -10 + depth
     Draw -> depth
+
 
 minimax2 : Player -> Board -> Board
 minimax2 player board =

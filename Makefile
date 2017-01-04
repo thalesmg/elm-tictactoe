@@ -1,2 +1,2 @@
-elmmake: src/main.elm
-	elm-make src/main.elm --output main.js
+elmmake: src/Main.elm
+	elm-make src/Main.elm --output main.js
