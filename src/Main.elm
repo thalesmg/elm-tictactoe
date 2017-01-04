@@ -284,7 +284,7 @@ rank2 : Outcome -> Int -> Int
 rank2 out depth = case out of
     Win -> 10 - depth
     Lose -> -10 + depth
-    Draw -> depth
+    Draw -> 0
 
 
 minimax2 : Player -> Board -> Board
@@ -304,7 +304,7 @@ minimax2 player board =
                     in
                         case List.head ranks of
                             Just ((o, d), r) -> (reverseOutcome o, d)
-                            Nothing -> D.crash "Fuck!"
+                            Nothing -> D.crash "Boom!"
         gameOver = playerOutcome board player |> isJust
         allBoards = availableMoves board |> List.map (\pos -> makeMove player pos board)
         tagged = allBoards |> List.map (\b -> (b, helper player 0 b |> (\(o, d) -> rank2 o d))) |> List.sortBy Tuple.second |> List.reverse
