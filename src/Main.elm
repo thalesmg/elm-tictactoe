@@ -5,6 +5,10 @@ import Html.Events exposing (onClick)
 import Matrix exposing (..)
 import Array as A
 import Debug as D
+import Native.MyLazy
+
+memoize : (a -> b) -> (a -> b)
+memoize = Native.MyLazy.memoize
 
 
 main : Program Never Model Msg
@@ -294,8 +298,8 @@ rank2 out depth = case out of
 minimax2 : Player -> Board -> Board
 minimax2 player board =
     let
-        helper : Player -> Int -> Board -> (Outcome, Int)
-        helper pp dd bb =
+        helper_ : (Player, Int, Board) -> (Outcome, Int)
+        helper_ (pp, dd, bb) =
             case playerOutcome bb pp of
                 Just o -> (o, dd)
                 Nothing -> 
@@ -303,15 +307,16 @@ minimax2 player board =
                         moves = availableMoves bb
                         other = otherPlayer pp
                         bs = List.map (\pos -> makeMove other pos bb) moves
-                        outs = List.map (\b -> helper other (dd + 1) b) bs
+                        outs = List.map (\b -> helper (other, (dd + 1), b)) bs
                         ranks = outs |> List.map (\(o, d) -> ((o, d), rank2 o d)) |> List.sortBy Tuple.second |> List.reverse
                     in
                         case List.head ranks of
                             Just ((o, d), r) -> (reverseOutcome o, d)
                             Nothing -> D.crash "Boom!"
+        helper = memoize helper_ 
         gameOver = playerOutcome board player |> isJust
         allBoards = availableMoves board |> List.map (\pos -> makeMove player pos board)
-        tagged = allBoards |> List.map (\b -> (b, helper player 0 b |> (\(o, d) -> rank2 o d))) |> List.sortBy Tuple.second |> List.reverse
+        tagged = allBoards |> List.map (\b -> (b, helper (player, 0, b) |> (\(o, d) -> rank2 o d))) |> List.sortBy Tuple.second |> List.reverse
     in
         if gameOver
             then board

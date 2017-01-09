@@ -5,8 +5,9 @@
     "license": "BSD3",
     "source-directories": [
         ".",
-	"src"
+	    "src"
     ],
+    "native-modules": true,
     "exposed-modules": [],
     "dependencies": {
         "elm-lang/core": "5.0.0 <= v < 6.0.0",
